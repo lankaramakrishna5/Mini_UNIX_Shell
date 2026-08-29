@@ -7,8 +7,20 @@
 struct Command
 {
     std::vector<std::string> args;
+
+    std::string inputFile;
+    std::string outputFile;
+
+    bool append;
 };
 
-Command parseCommand(const std::string& input);
+struct ParsedLine
+{
+    std::vector<Command> commands;
+
+    bool background;
+};
+
+ParsedLine parseCommand(const std::string& input);
 
 #endif

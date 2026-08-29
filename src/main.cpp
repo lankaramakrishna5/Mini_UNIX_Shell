@@ -32,26 +32,37 @@ int main()
         if (input.empty())
             continue;
 
-        // Parse command
-        Command command = parseCommand(input);
+        // Parse complete input
+        ParsedLine parsedLine = parseCommand(input);
+
+        // No command
+        if (parsedLine.commands.empty())
+            continue;
+
+        // For now, we execute only a single command.
+        // Pipes, redirection and background execution
+        // will be implemented in executor.cpp.
+        Command command = parsedLine.commands[0];
 
         if (command.args.empty())
             continue;
 
-        vector<string> args = command.args;
-
         // Handle built-in commands
-        if (isBuiltin(args[0]))
+        if (isBuiltin(command.args[0]))
         {
-            executeBuiltin(args[0], args);
+            executeBuiltin(command.args[0], command.args);
             continue;
         }
 
         // Convert vector<string> to char* array for execvp()
         vector<char*> argv;
 
-        for (size_t i = 0; i < args.size(); i++)
-            argv.push_back(const_cast<char*>(args[i].c_str()));
+        for (size_t i = 0; i < command.args.size(); i++)
+        {
+            argv.push_back(
+                const_cast<char*>(command.args[i].c_str())
+            );
+        }
 
         argv.push_back(NULL);
 
