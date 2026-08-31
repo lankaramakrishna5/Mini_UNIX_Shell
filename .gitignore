@@ -35,3 +35,9 @@ result.txt
 docs/cv-points.md
 *cv-points*
 
+# Generated report artifacts
+*.pdf
+*.html
+generate_pdf.py
+
+
