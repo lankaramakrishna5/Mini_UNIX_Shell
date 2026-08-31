@@ -1,0 +1,3 @@
+ls | wc -l
+cat /etc/passwd | head -n 5
+exit

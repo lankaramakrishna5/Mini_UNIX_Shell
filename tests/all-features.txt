@@ -1,0 +1,24 @@
+pwd
+ls
+whoami
+date
+cd /tmp
+pwd
+cd /mnt/c/Users/lanka/Desktop/programspractice/Mini_UNIX_Shell
+pwd
+
+echo hello > /tmp/myshell_output.txt
+cat < /tmp/myshell_output.txt
+echo second >> /tmp/myshell_output.txt
+cat /tmp/myshell_output.txt
+
+ls | wc -l
+cat /etc/passwd | head -n 5
+
+sleep 2 &
+pwd
+
+badcommand
+cd /does/not/exist
+ls >
+exit

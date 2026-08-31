@@ -2,56 +2,43 @@
 #include <string>
 
 #include "builtins.h"
-#include "parser.h"
 #include "executor.h"
+#include "parser.h"
+#include "signals.h"
 
 using namespace std;
 
 int main()
 {
+    setupSignalHandlers();
+
     string input;
 
     while (true)
     {
         cout << "myshell> ";
+        cout.flush();
 
-        getline(cin, input);
-
-        // Handle Ctrl+D / EOF
-        if (cin.eof())
+        if (!getline(cin, input))
         {
-            cout << endl;
-            break;
+            if (cin.eof())
+            {
+                cout << endl;
+                break;
+            }
+
+            continue;
         }
 
-        // Ignore empty input
         if (input.empty())
             continue;
 
-        // Parse command
         ParsedLine parsedLine = parseCommand(input);
 
-        // No command
         if (parsedLine.commands.empty())
             continue;
 
-        // For now, execute only the first command.
-        // Pipes, redirection and background execution
-        // will be handled by the executor later.
-        Command command = parsedLine.commands[0];
-
-        if (command.args.empty())
-            continue;
-
-        // Handle built-in commands
-        if (isBuiltin(command.args[0]))
-        {
-            executeBuiltin(command.args[0], command.args);
-            continue;
-        }
-
-        // Execute external command
-        executeCommand(command);
+        executeParsedLine(parsedLine);
     }
 
     return 0;

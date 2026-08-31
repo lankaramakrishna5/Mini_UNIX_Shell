@@ -1,0 +1,5 @@
+echo hello > /tmp/myshell_redirection.txt
+cat < /tmp/myshell_redirection.txt
+echo again >> /tmp/myshell_redirection.txt
+cat /tmp/myshell_redirection.txt
+exit

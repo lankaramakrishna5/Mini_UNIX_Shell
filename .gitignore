@@ -1,0 +1,32 @@
+# Build artifacts
+*.o
+*.obj
+*.out
+*.exe
+myshell
+bin/
+build/
+Debug/
+Release/
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Local temp or output files
+output.txt
+files.txt
+result.txt
+/tmp/
+*.tmp
+
+# Shell test artifacts
+/tmp/myshell_*
