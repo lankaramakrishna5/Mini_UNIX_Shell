@@ -21,6 +21,6 @@ struct ParsedLine
     bool background;
 };
 
-ParsedLine parseCommand(const std::string& input);
+ParsedLine parseCommand(const std::string& input, int lastExitStatus = 0);
 
 #endif

@@ -30,3 +30,8 @@ result.txt
 
 # Shell test artifacts
 /tmp/myshell_*
+
+# Private CV and notes
+docs/cv-points.md
+*cv-points*
+

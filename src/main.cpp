@@ -13,9 +13,12 @@ int main()
     setupSignalHandlers();
 
     string input;
+    int lastExitCode = 0;
 
     while (true)
     {
+        removeFinishedJobs();
+
         cout << "myshell> ";
         cout.flush();
 
@@ -27,18 +30,20 @@ int main()
                 break;
             }
 
+            // Clear stream error state if interrupted by signal
+            cin.clear();
             continue;
         }
 
         if (input.empty())
             continue;
 
-        ParsedLine parsedLine = parseCommand(input);
+        ParsedLine parsedLine = parseCommand(input, lastExitCode);
 
         if (parsedLine.commands.empty())
             continue;
 
-        executeParsedLine(parsedLine);
+        lastExitCode = executeParsedLine(parsedLine);
     }
 
     return 0;

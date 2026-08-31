@@ -1,41 +1,40 @@
 # Mini Unix Shell
 
-A lightweight Unix-like shell written in C++ for Linux systems. This project focuses on the core mechanisms behind a shell: command parsing, process creation, file redirection, pipes, background jobs, and signal handling.
+A lightweight Unix-like shell written in modern C++ (C++17) for Linux systems. This project demonstrates core operating systems mechanisms: command tokenization, process creation, file descriptor redirection, multi-stage pipelines, background jobs, and signal handling.
 
-## Project goal
+## Project Features
 
-Build a working shell that can:
+- **Process Lifecycle Management:** External program execution using `fork()`, `execvp()`, and `waitpid()`.
+- **Built-in Commands:** `cd` (with `~` and `cd -` / `OLDPWD` support), `pwd`, `echo` (with `-n`), `export`, `unset`, `jobs`, `fg`, `bg`, `help`, and `exit`.
+- **Quote-Aware Parser:** Full support for single quotes (`'...'`), double quotes (`"..."`), escape characters (`\`), and comments (`#`).
+- **Environment Variable Expansion:** Dynamic expansion of `$VAR`, `$?` (last exit code), `$$` (shell PID), and `~` (home directory).
+- **Stream Redirection:** Input (`<`), Output (`>`), and Append (`>>`) redirection with file descriptor save/restore mechanics.
+- **Pipelines:** Arbitrary multi-stage piping (`cmd1 | cmd2 | ... | cmdN`) via `pipe()` and `dup2()`.
+- **Job Control & Signals:** Background execution with `&`, signal-safe non-blocking reaping of finished jobs (`WNOHANG`), and graceful handling of `SIGINT` (Ctrl+C), `SIGTSTP` (Ctrl+Z), and `SIGCHLD`.
 
-- read commands from a prompt
-- run external programs using fork() and execvp()
-- support built-ins like cd, pwd, and exit
-- redirect input and output
-- chain commands with pipes
-- support background execution with &
-- handle signals safely and avoid zombie processes
+## Repository Structure
 
-## Repository structure
+- `src/` — modular source files (`main.cpp`, `parser.cpp`, `executor.cpp`, `builtins.cpp`, `signals.cpp`)
+- `tests/` — automated test runner and test scenarios
+- `docs/` — implementation roadmaps and documentation
+- `problem-statement.md` — full project brief and assignment description
+- `Makefile` — build configuration
 
-- src/ — implementation files
-- tests/ — sample command sets and validation scenarios
-- problem-statement.md — full project brief and assignment description
-- docs/ — supporting material such as CV-ready points and project roadmap
-- Makefile — build configuration
-- .gitignore — ignored generated and editor files
+## Key Documents
 
-## Key documents
+- [docs/implementation-roadmap.md](docs/implementation-roadmap.md) — project roadmap
+- [problem-statement.md](problem-statement.md) — project brief
 
-- [problem-statement.md](problem-statement.md)
-- [docs/cv-points.md](docs/cv-points.md)
-- [docs/implementation-roadmap.md](docs/implementation-roadmap.md)
-
-## Build and run
+## Build and Run
 
 ```bash
 make
 ./myshell
 ```
 
-## Notes
+## Running Tests
 
-This project is intentionally focused on learning OS concepts rather than reproducing the full behaviour of Bash.
+```bash
+bash tests/run_tests.sh
+```
+

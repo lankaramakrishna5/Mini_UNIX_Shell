@@ -78,7 +78,7 @@ namespace
         }
     }
 
-    void applyRedirection(const Command &command, bool isFirstCommand, bool isLastCommand)
+    bool applyRedirection(const Command &command, bool isFirstCommand, bool isLastCommand)
     {
         if (!command.inputFile.empty() && isFirstCommand)
         {
@@ -86,12 +86,13 @@ namespace
             if (fd < 0)
             {
                 perror("open");
-                _exit(1);
+                return false;
             }
             if (dup2(fd, STDIN_FILENO) < 0)
             {
                 perror("dup2");
-                _exit(1);
+                close(fd);
+                return false;
             }
             close(fd);
         }
@@ -103,15 +104,17 @@ namespace
             if (fd < 0)
             {
                 perror("open");
-                _exit(1);
+                return false;
             }
             if (dup2(fd, STDOUT_FILENO) < 0)
             {
                 perror("dup2");
-                _exit(1);
+                close(fd);
+                return false;
             }
             close(fd);
         }
+        return true;
     }
 
     void execCommandWithArgs(const Command &command)
@@ -128,82 +131,111 @@ namespace
             _exit(0);
         }
 
-        execvp(argv[0], &argv[0]);
+        execvp(argv[0], argv.data());
         perror("execvp");
-        _exit(1);
+        _exit(127);
     }
 
 } // namespace
 
-void executeCommand(const Command &command)
+int executeCommand(const Command &command)
 {
-    if (command.args.empty())
-        return;
-
-    Command expandedCommand = command;
-    expandWildcards(expandedCommand);
-
-    if (isBuiltin(expandedCommand.args[0]))
-    {
-        executeBuiltin(expandedCommand.args[0], expandedCommand.args);
-        return;
-    }
-
-    pid_t pid = fork();
-    if (pid < 0)
-    {
-        perror("fork");
-        return;
-    }
-
-    if (pid == 0)
-    {
-        signal(SIGINT, SIG_DFL);
-        signal(SIGTSTP, SIG_DFL);
-        applyRedirection(expandedCommand, true, true);
-        execCommandWithArgs(expandedCommand);
-    }
-
-    int status = 0;
-    if (waitpid(pid, &status, 0) < 0)
-    {
-        perror("waitpid");
-    }
+    ParsedLine pl;
+    pl.commands.push_back(command);
+    pl.background = false;
+    return executeParsedLine(pl);
 }
 
-void executeParsedLine(const ParsedLine &parsedLine)
+int executeParsedLine(const ParsedLine &parsedLine)
 {
     if (parsedLine.commands.empty())
-        return;
+        return 0;
 
     const size_t commandCount = parsedLine.commands.size();
 
+    // Single command execution
     if (commandCount == 1)
     {
         Command command = parsedLine.commands[0];
         expandWildcards(command);
 
         if (command.args.empty())
-            return;
+            return 0;
 
         if (isBuiltin(command.args[0]))
         {
-            executeBuiltin(command.args[0], command.args);
-            return;
+            int savedIn = -1;
+            int savedOut = -1;
+            bool hasRedir = !command.inputFile.empty() || !command.outputFile.empty();
+
+            if (hasRedir)
+            {
+                if (!command.inputFile.empty())
+                    savedIn = dup(STDIN_FILENO);
+                if (!command.outputFile.empty())
+                    savedOut = dup(STDOUT_FILENO);
+
+                if (!applyRedirection(command, true, true))
+                {
+                    if (savedIn >= 0)
+                    {
+                        dup2(savedIn, STDIN_FILENO);
+                        close(savedIn);
+                    }
+                    if (savedOut >= 0)
+                    {
+                        dup2(savedOut, STDOUT_FILENO);
+                        close(savedOut);
+                    }
+                    return 1;
+                }
+            }
+
+            int ret = executeBuiltin(command.args[0], command.args);
+
+            if (hasRedir)
+            {
+                cout.flush();
+                cerr.flush();
+                if (savedIn >= 0)
+                {
+                    dup2(savedIn, STDIN_FILENO);
+                    close(savedIn);
+                }
+                if (savedOut >= 0)
+                {
+                    dup2(savedOut, STDOUT_FILENO);
+                    close(savedOut);
+                }
+            }
+
+            return ret;
         }
 
         pid_t pid = fork();
         if (pid < 0)
         {
             perror("fork");
-            return;
+            return 1;
         }
 
         if (pid == 0)
         {
-            signal(SIGINT, SIG_DFL);
-            signal(SIGTSTP, SIG_DFL);
-            applyRedirection(command, true, true);
+            if (parsedLine.background)
+            {
+                signal(SIGINT, SIG_IGN);
+                signal(SIGTSTP, SIG_IGN);
+            }
+            else
+            {
+                signal(SIGINT, SIG_DFL);
+                signal(SIGTSTP, SIG_DFL);
+            }
+
+            if (!applyRedirection(command, true, true))
+            {
+                _exit(1);
+            }
             execCommandWithArgs(command);
         }
 
@@ -211,24 +243,32 @@ void executeParsedLine(const ParsedLine &parsedLine)
         {
             addJob(pid, joinCommand(command.args));
             cout << "[" << g_jobs.size() << "] " << pid << endl;
-            return;
+            return 0;
         }
 
         int status = 0;
         if (waitpid(pid, &status, 0) < 0)
         {
             perror("waitpid");
+            return 1;
         }
-        return;
+
+        if (WIFEXITED(status))
+            return WEXITSTATUS(status);
+        if (WIFSIGNALED(status))
+            return 128 + WTERMSIG(status);
+
+        return 0;
     }
 
+    // Pipeline execution (commandCount > 1)
     vector<int> pipeFds((commandCount - 1) * 2);
     for (size_t i = 0; i + 1 < commandCount; ++i)
     {
         if (pipe(&pipeFds[i * 2]) < 0)
         {
             perror("pipe");
-            return;
+            return 1;
         }
     }
 
@@ -244,17 +284,25 @@ void executeParsedLine(const ParsedLine &parsedLine)
         if (pid < 0)
         {
             perror("fork");
+            for (int fd : pipeFds)
+                close(fd);
             for (pid_t childPid : childPids)
-            {
                 waitpid(childPid, nullptr, 0);
-            }
-            return;
+            return 1;
         }
 
         if (pid == 0)
         {
-            signal(SIGINT, SIG_DFL);
-            signal(SIGTSTP, SIG_DFL);
+            if (parsedLine.background)
+            {
+                signal(SIGINT, SIG_IGN);
+                signal(SIGTSTP, SIG_IGN);
+            }
+            else
+            {
+                signal(SIGINT, SIG_DFL);
+                signal(SIGTSTP, SIG_DFL);
+            }
 
             if (i > 0)
             {
@@ -297,8 +345,8 @@ void executeParsedLine(const ParsedLine &parsedLine)
 
             if (!command.args.empty() && isBuiltin(command.args[0]))
             {
-                executeBuiltin(command.args[0], command.args);
-                _exit(0);
+                int exitCode = executeBuiltin(command.args[0], command.args);
+                _exit(exitCode);
             }
 
             execCommandWithArgs(command);
@@ -307,6 +355,7 @@ void executeParsedLine(const ParsedLine &parsedLine)
         childPids.push_back(pid);
     }
 
+    // Close all pipe fds in parent
     for (int fd : pipeFds)
     {
         close(fd);
@@ -319,13 +368,24 @@ void executeParsedLine(const ParsedLine &parsedLine)
             addJob(childPid, "pipeline");
         }
         cout << "[" << g_jobs.size() << "] " << childPids.front() << endl;
-        return;
+        return 0;
     }
 
-    for (pid_t childPid : childPids)
+    int lastExitCode = 0;
+    for (size_t i = 0; i < childPids.size(); ++i)
     {
         int status = 0;
-        if (waitpid(childPid, &status, 0) < 0)
+        if (waitpid(childPids[i], &status, 0) >= 0)
+        {
+            if (i == childPids.size() - 1)
+            {
+                if (WIFEXITED(status))
+                    lastExitCode = WEXITSTATUS(status);
+                else if (WIFSIGNALED(status))
+                    lastExitCode = 128 + WTERMSIG(status);
+            }
+        }
+        else
         {
             if (errno != ECHILD)
             {
@@ -333,4 +393,7 @@ void executeParsedLine(const ParsedLine &parsedLine)
             }
         }
     }
+
+    return lastExitCode;
 }
+

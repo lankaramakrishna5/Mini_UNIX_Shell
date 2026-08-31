@@ -1,12 +1,7 @@
 #include "signals.h"
 
-#include <cerrno>
 #include <csignal>
-#include <cstdlib>
 #include <iostream>
-
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 namespace
@@ -14,31 +9,30 @@ namespace
     void handleSigint(int signum)
     {
         (void)signum;
-    }
-
-    void handleSigtstp(int signum)
-    {
-        (void)signum;
+        // On Ctrl+C, output a newline so shell stays responsive
+        const char msg[] = "\n";
+        write(STDOUT_FILENO, msg, sizeof(msg) - 1);
     }
 } // namespace
 
 void setupSignalHandlers()
 {
-    struct sigaction sigIntAction;
-    sigIntAction.sa_handler = handleSigint;
-    sigemptyset(&sigIntAction.sa_mask);
-    sigIntAction.sa_flags = 0;
-    sigaction(SIGINT, &sigIntAction, nullptr);
+    struct sigaction saInt;
+    saInt.sa_handler = handleSigint;
+    sigemptyset(&saInt.sa_mask);
+    saInt.sa_flags = SA_RESTART;
+    sigaction(SIGINT, &saInt, nullptr);
 
-    struct sigaction sigTstpAction;
-    sigTstpAction.sa_handler = handleSigtstp;
-    sigemptyset(&sigTstpAction.sa_mask);
-    sigTstpAction.sa_flags = 0;
-    sigaction(SIGTSTP, &sigTstpAction, nullptr);
+    struct sigaction saTstp;
+    saTstp.sa_handler = SIG_IGN;
+    sigemptyset(&saTstp.sa_mask);
+    saTstp.sa_flags = SA_RESTART;
+    sigaction(SIGTSTP, &saTstp, nullptr);
 
-    struct sigaction sigChldAction;
-    sigChldAction.sa_handler = SIG_IGN;
-    sigemptyset(&sigChldAction.sa_mask);
-    sigChldAction.sa_flags = 0;
-    sigaction(SIGCHLD, &sigChldAction, nullptr);
+    struct sigaction saQuit;
+    saQuit.sa_handler = SIG_IGN;
+    sigemptyset(&saQuit.sa_mask);
+    saQuit.sa_flags = SA_RESTART;
+    sigaction(SIGQUIT, &saQuit, nullptr);
 }
+

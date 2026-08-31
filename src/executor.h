@@ -3,7 +3,7 @@
 
 #include "parser.h"
 
-void executeCommand(const Command &command);
-void executeParsedLine(const ParsedLine &parsedLine);
+int executeCommand(const Command &command);
+int executeParsedLine(const ParsedLine &parsedLine);
 
 #endif
